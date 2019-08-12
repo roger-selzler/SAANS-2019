@@ -3,7 +3,7 @@
 apt update
 apt -y full-upgrade
 
-apt -y install vim net-tools git
+apt -y install vim net-tools git tree
 apt-get -y install python-pip
 
 echo -- PIP version: --
