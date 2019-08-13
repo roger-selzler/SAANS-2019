@@ -16,13 +16,14 @@ echo "deb https://download.sublimetext.com/ apt/stable/" | sudo tee /etc/apt/sou
 sudo apt-get update
 sudo apt-get install sublime-text
 # -- add python autocompletion support
-git clone https://github.com/srusskih/SublimeJEDI.git "Jedi - Python autocompletion" ~/.config/sublime-text-3/Packages/
+cd ~/.config/sublime-text-3/Packages/
+git clone https://github.com/srusskih/SublimeJEDI.git "Jedi - Python autocompletion" 
 
 # -- Install virtual environment -- 
 echo "Installing virtualenv"
 pip install virtualenv
 virtualenv /venv
 source /venv/bin/activate
-pip install tensorflow tensorboard numpy dash dash-daq
+pip install tensorflow tensorboard numpy dash dash-daq paramiko
 deactivate
 
