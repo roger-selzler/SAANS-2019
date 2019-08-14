@@ -24,6 +24,6 @@ echo "Installing virtualenv"
 pip install virtualenv
 virtualenv /venv
 source /venv/bin/activate
-pip install tensorflow tensorboard numpy dash dash-daq paramiko
+pip install tensorflow tensorboard numpy dash dash-daq paramiko pandas
 deactivate
 

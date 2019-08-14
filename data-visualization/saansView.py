@@ -6,11 +6,18 @@ from dash.dependencies import Input,Output
 import base64
 import paramiko
 import re
+import datetime
+import csv
+import os,sys
+import pandas as pd
 
 DATAFOLDER = "/var/www/rawdata/data/"
+TEMPFOLDER = os.path.expanduser('~/temp')
 USERNAME = 'rogerselzler'
 SERVER = '172.16.59.3'
-	
+
+
+ECGData = [];
 # def execCommand(cmd):
 # 	print("executing command: " + cmd)
 # 	# client.connect(SERVER,username=USERNAME)
@@ -40,7 +47,7 @@ def requestSubjects():
 	stdin, stdout, stderr = client.exec_command(cmd)
 	SUBJECTS = []
 	for line in stdout:
-		print (line.strip('\n'))
+		# print (line.strip('\n'))
 		aux = line.split('/')
 		aux = aux[len(aux)-2]
 		# if aux.isdigit()
@@ -58,7 +65,7 @@ def requestSessions(subject):
 	stdin, stdout, stderr = client.exec_command(cmd) 
 	SESSIONS = []
 	for line in stdout:
-		print (line.strip('\n'))
+		# print (line.strip('\n'))
 		aux = line.split('/')
 		aux = aux[len(aux)-2]
 		# if aux.isdigit()
@@ -70,6 +77,70 @@ def requestSessions(subject):
 		sessionoptions.append({'label':str(i),'value':str(i)})
 	client.close()
 	return sessionoptions
+
+def requestListOfFiles(subject,session):
+	client = paramiko.SSHClient()
+	host_keys = client.load_system_host_keys()
+	client.connect(SERVER,username=USERNAME)
+	cmd = 'ls ' + DATAFOLDER + subject + os.sep + session
+	stdin, stdout, stderr = client.exec_command(cmd) 
+	FILES = []
+	for line in stdout:
+		FILES.append(line.strip('\n'))
+	client.close()
+	return FILES
+
+def downloadFiles(subject,session,filename):
+	if not os.path.isdir(TEMPFOLDER):
+		print('Folder ' + TEMPFOLDER + ' does not exist')
+		os.mkdir(TEMPFOLDER,0755)
+	client = paramiko.SSHClient()
+	host_keys = client.load_system_host_keys()
+	client.connect(SERVER,username=USERNAME)
+	if type(filename) == list:
+		for fileX in filename:
+			if not os.path.isfile(TEMPFOLDER + os.sep + fileX):
+				print ('downloading file: ' + fileX)
+				print(TEMPFOLDER + os.sep + fileX)
+				print(DATAFOLDER + subject + os.sep + session + os.sep + fileX)
+				cmd = 'scp ' + DATAFOLDER + subject + os.sep + session + fileX + ' ' + USERNAME + '@172.16.59.24:' + TEMPFOLDER + os.sep + fileX
+				print(cmd)
+				stdin, stdout, stderr = client.exec_command(cmd) 
+			else:
+				print (fileX + " already exist!")
+	elif type(filename) == str:
+		print ('downloading file: ' + filename)
+		print(TEMPFOLDER + os.sep + filename)
+	client.close()
+
+	
+
+def loadData(subject, session,files):
+	print('Loading files' )
+	# re.match(pattern, string)
+	ecgfiles =[];
+	for i in files:
+		if 'ECG.csv' in i:
+			# print (i)
+			ecgfiles.append(i)
+	if len(ecgfiles) > 0:
+		print(ecgfiles[0])
+	print(type(ecgfiles))
+	downloadFiles(subject, session, ecgfiles)
+	ECGData = [];
+
+	# with open(ecgfiles[0]) as csv_file:
+	# 	csv_reader = csv.reader(csv_file,delimiter=',')
+	# 	line_count=0
+	# 	for row in csv_reader:
+	# 		if line_count==0:
+	# 			printf('column names are {", ".join(row)}')
+
+	# for i in files:
+	# 	print(i)
+
+
+
 
 SUBJECTS = requestSubjects()
 
@@ -121,7 +192,9 @@ app.layout = html.Div([
     		html.I(id='backward_Btn', n_clicks=0, className='fa fa-backward',style={'padding':10}),
     		html.I(id='pause_Btn', n_clicks=0, className='fa fa-pause',style={'padding':10}),
     		html.I(id='forward_Btn', n_clicks=0, className='fa fa-forward',style={'padding':10}),
-    		html.I(id='fast_forward_Btn', n_clicks=0, className='fa fa-fast-forward',style={'padding':10})
+    		html.I(id='fast_forward_Btn', n_clicks=0, className='fa fa-fast-forward',style={'padding':10}),
+    		html.I(id='decreaseXlim_Btn', n_clicks=0, className='fa fa-minus',style={'padding':10}),
+    		html.I(id='increaseXlim_Btn', n_clicks=0, className='fa fa-plus',style={'padding':10})
     		
     		# ],style={'padding':10}),
 	   #  html.Div([html.I(id='pauseBtn', n_clicks=0, className='fa fa-pause')],'style'={'padding':10}),
@@ -132,23 +205,54 @@ app.layout = html.Div([
 		],style={
 		'columnCount':1,
 		'text-align':'center'
-		})
+		}),
+    html.Div(id='messageContainer',children='test'),
+    # html.Div(id='hiddenListOfFiles',style={'display':'true','columnCount':3}),
+    html.Div(id='xAxisLimValue',children=30,style={'display':'true','columnCount':3}),
+	html.Div(id='hiddenListOfFiles',style={'display':'true','columnCount':3})
     ])
 
+# -- Adjust the time displayed on the ECG graph
+@app.callback(Output('xAxisLimValue','children'),
+	[Input('increaseXlim_Btn','n_clicks'),
+	Input('decreaseXlim_Btn','n_clicks')])
+def increaseTimeSeriesDataLim(increase,decrease):
+	cval = 30 + 5*increase - 5*decrease
+	# print(cval)
+	return cval
 
-# @app.callback(dash.dependencies.Output)
 
+@app.callback(Output('hiddenListOfFiles','children'),
+	[Input('subject','value'),
+	Input('session','value')])
+def storeFileNames(subject, session):
+	FILES = requestListOfFiles(str(subject),str(session))
+	s= [html.Div(id=fileN,children=fileN) for fileN in FILES]
+	# print(type(s))
+	return(s)
 
+# @app.callback(Output('messageContainer','children'),
+# 	[Input('session','value')])
+# def updateMessage(input):
+# 	if type(input) == list:
+# 		print("is list!!!")
+# 		# print(s)
+# 	else:
+# 		s=input
+# 	print(type(s))
+# 	print(s)
+# 	return html.Div(s)
 
+# https://dash.plot.ly/live-updates
 @app.callback(
 	[Output('session','options'),
 	Output('session','value')],
 	[Input('subject','value')],
 	)
 def updateSessionList(subjectSelected):
-	print(subjectSelected)
+	# print(subjectSelected)
 	sessionoptions = requestSessions(subjectSelected)
-	print(sessionoptions) 
+	# print(sessionoptions) 
 	if (len(sessionoptions) > 0):
 		sessionval = sessionoptions[0]['value']
 	else:
@@ -161,8 +265,14 @@ def updateSessionList(subjectSelected):
 	[Input('subject','value'),
 	Input('session','value')])
 def updateGraphs(subject,session):
+	FILES = requestListOfFiles(str(subject),str(session))
+	loadData(str(subject),str(session),FILES)
 	# print(value)
-	
+	# print(type(subject))
+	# print(type(session))
+	# print(FILES)
+	# updateMessage('test new...')
+
 	fig={
 	'data': [
 		{
@@ -186,7 +296,7 @@ def updateGraphs(subject,session):
 	    ],
 	    'layout': {
 	        'clickmode': 'event+select',
-	        'height':300
+	        'height':350
 	    }
     }
 	return fig
