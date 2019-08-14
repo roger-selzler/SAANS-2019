@@ -6,38 +6,36 @@ from dash.dependencies import Input,Output
 import base64
 import paramiko
 import re
-import datetime
+import datetime , time
 import csv
 import os,sys
 import pandas as pd
+import numpy as np
 
 DATAFOLDER = "/var/www/rawdata/data/"
 TEMPFOLDER = os.path.expanduser('~/temp')
 USERNAME = 'rogerselzler'
 SERVER = '172.16.59.3'
 
+os.system('clear')
 
-ECGData = [];
-# def execCommand(cmd):
-# 	print("executing command: " + cmd)
-# 	# client.connect(SERVER,username=USERNAME)
-# 	client = paramiko.SSHClient()
-# 	host_keys = client.load_system_host_keys()
-# 	client.connect(SERVER,username=USERNAME)
-# 	stdin, stdout, stderr = client.exec_command(
-# 		'ls -d ' + DATAFOLDER + '*/')
-# 	client.close()
-# 	SUBJECTS = []
-# 	for line in stdout:
-# 		print (line.strip('\n'))
-# 		aux = line.split('/')
-# 		aux = aux[len(aux)-2]
-# 		# if aux.isdigit()
-# 		SUBJECTS.append(aux)
-# 	SUBJECTS = [ a for a in SUBJECTS if a.isnumeric() ]
-# 	SUBJECTS.sort(key=float)
-# 	print(SUBJECTS)
-# 	return stdin,stdout,stderr;
+
+# ECGData = np.zeros(shape=(0,0))
+
+# ECGData = [];
+def execCommand(cmd):
+	print("executing command: " + cmd)
+	client = paramiko.SSHClient()
+	host_keys = client.load_system_host_keys()
+	client.connect(SERVER,username=USERNAME)
+	stdin, stdout, stderr = client.exec_command(cmd)
+	exitStatus = stdout.channel.recv_exit_status()
+	if exitStatus == 0:
+		print ("cmd \"" + cmd + "\" successfull.")
+	else:
+		print ("cmd \"" + cmd + "\" returned an error: " + str(exitStatus))
+	client.close()
+	
 
 def requestSubjects():
 	client = paramiko.SSHClient()
@@ -47,10 +45,8 @@ def requestSubjects():
 	stdin, stdout, stderr = client.exec_command(cmd)
 	SUBJECTS = []
 	for line in stdout:
-		# print (line.strip('\n'))
 		aux = line.split('/')
 		aux = aux[len(aux)-2]
-		# if aux.isdigit()
 		SUBJECTS.append(aux)
 	SUBJECTS = [ a for a in SUBJECTS if a.isnumeric() ]
 	SUBJECTS.sort(key=float)
@@ -68,7 +64,6 @@ def requestSessions(subject):
 		# print (line.strip('\n'))
 		aux = line.split('/')
 		aux = aux[len(aux)-2]
-		# if aux.isdigit()
 		SESSIONS.append(aux)
 	SESSIONS = [ a for a in SESSIONS if a.isnumeric() ]
 	SESSIONS.sort(key=float)
@@ -94,50 +89,45 @@ def downloadFiles(subject,session,filename):
 	if not os.path.isdir(TEMPFOLDER):
 		print('Folder ' + TEMPFOLDER + ' does not exist')
 		os.mkdir(TEMPFOLDER,0755)
-	client = paramiko.SSHClient()
-	host_keys = client.load_system_host_keys()
-	client.connect(SERVER,username=USERNAME)
 	if type(filename) == list:
 		for fileX in filename:
 			if not os.path.isfile(TEMPFOLDER + os.sep + fileX):
 				print ('downloading file: ' + fileX)
 				print(TEMPFOLDER + os.sep + fileX)
 				print(DATAFOLDER + subject + os.sep + session + os.sep + fileX)
-				cmd = 'scp ' + DATAFOLDER + subject + os.sep + session + fileX + ' ' + USERNAME + '@172.16.59.24:' + TEMPFOLDER + os.sep + fileX
+				cmd = 'scp ' + DATAFOLDER + subject + os.sep + session + os.sep + fileX + ' ' + USERNAME + '@172.16.59.24:' + TEMPFOLDER + os.sep + fileX
 				print(cmd)
-				stdin, stdout, stderr = client.exec_command(cmd) 
+				execCommand(cmd)
+
 			else:
 				print (fileX + " already exist!")
 	elif type(filename) == str:
 		print ('downloading file: ' + filename)
 		print(TEMPFOLDER + os.sep + filename)
-	client.close()
-
-	
 
 def loadData(subject, session,files):
 	print('Loading files' )
-	# re.match(pattern, string)
 	ecgfiles =[];
 	for i in files:
 		if 'ECG.csv' in i:
-			# print (i)
 			ecgfiles.append(i)
 	if len(ecgfiles) > 0:
 		print(ecgfiles[0])
-	print(type(ecgfiles))
 	downloadFiles(subject, session, ecgfiles)
-	ECGData = [];
+	if len(ecgfiles) > 0:
+		print("length of ecgfiles is: " + str(len(ecgfiles)))
+		if os.path.isfile(TEMPFOLDER + os.sep + ecgfiles[0]):
+			global ECGData
+			ECGData = pd.read_csv(TEMPFOLDER + os.sep + ecgfiles[0])
+			print(ECGData.head())
+			# ECGData['Time'] = time.mktime(datetime.datetime.strptime(pd.Series.to_string(ECGData['Time']),"%d/%m/%Y %H:%M:%S.%f"))
+			# print(ECGData.head())
+			
 
-	# with open(ecgfiles[0]) as csv_file:
-	# 	csv_reader = csv.reader(csv_file,delimiter=',')
-	# 	line_count=0
-	# 	for row in csv_reader:
-	# 		if line_count==0:
-	# 			printf('column names are {", ".join(row)}')
 
-	# for i in files:
-	# 	print(i)
+
+
+	
 
 
 
@@ -146,12 +136,12 @@ SUBJECTS = requestSubjects()
 
 # -- configuration of the layout
 external_stylesheets = [
-'https://codepen.io/chriddyp/pen/bWLwgP.css',
-'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css']
+	'https://codepen.io/chriddyp/pen/bWLwgP.css',
+	'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css'
+	]
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-# app.css.append_css({'external_url': 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css'})
 
 app.layout = html.Div([
 	html.Div(
@@ -166,7 +156,7 @@ app.layout = html.Div([
 	    	),
 		html.Label('Session'),  
 	    dcc.Dropdown (id='session')
-	    ],style={'columnCount':4}), # set to 2 for full page
+	    ],style={'columnCount':2}), # set to 2 for full page
     html.Div([
     	dcc.Graph(
     		id='timeSeriesGraph'
@@ -185,9 +175,8 @@ app.layout = html.Div([
     	}),
     html.Div([
     	# html.Div([
+    		html.I(id='stop_Btn', n_clicks=0, className='fa fa-stop',style={'padding':10}),
     		html.I(id='play_Btn', n_clicks=0, className='fa fa-play',style={'padding':10}),
-    		# ],style={'padding':10}),
-    	# html.Div([
     		html.I(id='fast_backward_Btn', n_clicks=0, className='fa fa-fast-backward',style={'padding':10}),
     		html.I(id='backward_Btn', n_clicks=0, className='fa fa-backward',style={'padding':10}),
     		html.I(id='pause_Btn', n_clicks=0, className='fa fa-pause',style={'padding':10}),
@@ -272,34 +261,49 @@ def updateGraphs(subject,session):
 	# print(type(session))
 	# print(FILES)
 	# updateMessage('test new...')
+	try:
+		print (type(np.arange(ECGData['EcgWaveform'].size)))
+		print (type(ECGData['EcgWaveform'].values))
+		fig={
+		'data': [
+			{
+				# 'x': np.arange(ECGData['EcgWaveform'].size),
+		        # 'y': ECGData['EcgWaveform'].values,
+		        'x': np.arange(ECGData['EcgWaveform'].size),
+		        'y': ECGData['EcgWaveform'].values,
+		        # 'text': ['a', 'b', 'c', 'd'],
+		        # 'customdata': ['c.a', 'c.b', 'c.c', 'c.d'],
+		        'name': 'ECG'
+		        # 'mode': 'markers',
+		        # 'marker': {'size': 12}
+		    } #,
+		    # {
+		    #     'x': [1, 2, 3],
+		    #     'y': [9, 4, 1],
+		    #     'text': ['w', 'x', 'y'],
+		    #     'customdata': ['c.w', 'c.x', 'c.y'],
+		    #     'name': 'Trace 2',
+		    #     'mode': 'markers',
+		    #     'marker': {'size': 14}
+		    # }
+		    ],
+		    'layout': {
+		        # 'clickmode': 'event+select',
+		        'height':350,
+		        'name':'tst name',
+		        'title':'Continuous time signals'
+		    },
+		    # 'config': {
+		    # 	'editable':'true'}
 
-	fig={
-	'data': [
-		{
-			'x': [1, 2, 3, 4],
-	        'y': [4, 1, 3, 5],
-	        'text': ['a', 'b', 'c', 'd'],
-	        'customdata': ['c.a', 'c.b', 'c.c', 'c.d'],
-	        'name': 'Trace 1',
-	        'mode': 'markers',
-	        'marker': {'size': 12}
-	    },
-	    {
-	        'x': [1, 2, 3],
-	        'y': [9, 4, 1],
-	        'text': ['w', 'x', 'y'],
-	        'customdata': ['c.w', 'c.x', 'c.y'],
-	        'name': 'Trace 2',
-	        'mode': 'markers',
-	        'marker': {'size': 14}
+
 	    }
-	    ],
-	    'layout': {
-	        'clickmode': 'event+select',
-	        'height':350
-	    }
-    }
+	    
+	except:
+		print('Error on creating figure')
+		fig ={}
 	return fig
+	
 
 
 if __name__ == '__main__':
