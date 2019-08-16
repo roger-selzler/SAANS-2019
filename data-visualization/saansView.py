@@ -6,16 +6,23 @@ from dash.dependencies import Input,Output
 import base64
 import paramiko
 import re
-import datetime , time
+from datetime import datetime
+import time
 import csv
 import os,sys
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 
 DATAFOLDER = "/var/www/rawdata/data/"
 TEMPFOLDER = os.path.expanduser('~/temp')
 USERNAME = 'rogerselzler'
 SERVER = '172.16.59.3'
+
+
+
+minSliderBar = 0;
+maxSliderBar = 0;
 
 os.system('clear')
 
@@ -108,6 +115,8 @@ def downloadFiles(subject,session,filename):
 def loadData(subject, session,files):
 	print('Loading files' )
 	ecgfiles =[];
+	global ECGData
+	ECGData = None
 	for i in files:
 		if 'ECG.csv' in i:
 			ecgfiles.append(i)
@@ -116,18 +125,22 @@ def loadData(subject, session,files):
 	downloadFiles(subject, session, ecgfiles)
 	if len(ecgfiles) > 0:
 		print("length of ecgfiles is: " + str(len(ecgfiles)))
-		if os.path.isfile(TEMPFOLDER + os.sep + ecgfiles[0]):
-			global ECGData
+		if os.path.isfile(TEMPFOLDER + os.sep + ecgfiles[0]):	
 			ECGData = pd.read_csv(TEMPFOLDER + os.sep + ecgfiles[0])
 			print(ECGData.head())
+			# print(type((ECGData['Time'])))
 			# ECGData['Time'] = time.mktime(datetime.datetime.strptime(pd.Series.to_string(ECGData['Time']),"%d/%m/%Y %H:%M:%S.%f"))
 			# print(ECGData.head())
+		else:
+			ECGData = None
+		DATE = [(datetime.strptime(x,"%d/%m/%Y %H:%M:%S.%f")) for x in ECGData['Time']]
+		ECGData['Time']=pd.Series([time.mktime(x.timetuple()) + x.microsecond/1e6 for x in DATE])
+		print(ECGData.head())
+
+		minSliderBar = ECGData['Time'].iloc[0]
+		maxSliderBar = ECGData['Time'].iloc[-1]
 			
 
-
-
-
-	
 
 
 
@@ -157,18 +170,46 @@ app.layout = html.Div([
 		html.Label('Session'),  
 	    dcc.Dropdown (id='session')
 	    ],style={'columnCount':2}), # set to 2 for full page
+    # html.Div([
+    # 	dcc.Graph(
+	   #      id= '3DGraph' ,
+	   #      figure={
+	   #      	'layout': {
+			 #        # 'clickmode': 'event+select',
+			 #        # 'height':350,
+			 #        # 'width':350,
+			 #        'mode':'lines',
+			 #        'name':'tst name',
+			 #        'title':'3D Movement'
+			 #        # 'textAlign':'center'
+			 #    }
+    # 		}
+	   #  )
+    # 	],style={'textAlign':'center',
+    # 		'width':'50%',
+    # 		'backgroundColor':'blue'}
+    # ),
     html.Div([
     	dcc.Graph(
-    		id='timeSeriesGraph'
+    		id='timeSeriesGraph',
+    		figure={
+    			'layout': {
+			        # 'clickmode': 'event+select',
+			        'height':350,
+			        'name':'tst name',
+			        'title':'Continuous time signals'
+			    }
+    		}
     		)
-    	]
-    	),
+    	],
+    	
+    	),    
     html.Div([
     	dcc.Slider(
-    		id='cur_time',
-    		min=0,
-    		max=100,
-    		value=50)
+    		id='cur_time_slider',
+    		min=minSliderBar,
+    		max=maxSliderBar,
+    		value=minSliderBar)
     	],style={
     		'columnCount':1,
     		'height':16
@@ -193,7 +234,7 @@ app.layout = html.Div([
 	   #  'padding':100
 		],style={
 		'columnCount':1,
-		'text-align':'center'
+		'textAlign':'center'
 		}),
     html.Div(id='messageContainer',children='test'),
     # html.Div(id='hiddenListOfFiles',style={'display':'true','columnCount':3}),
@@ -209,7 +250,6 @@ def increaseTimeSeriesDataLim(increase,decrease):
 	cval = 30 + 5*increase - 5*decrease
 	# print(cval)
 	return cval
-
 
 @app.callback(Output('hiddenListOfFiles','children'),
 	[Input('subject','value'),
@@ -250,7 +290,10 @@ def updateSessionList(subjectSelected):
 
 	return sessionoptions,sessionval
 
-@app.callback(Output('timeSeriesGraph','figure'),
+@app.callback([
+	Output('timeSeriesGraph','figure'),
+	Output('cur_time_slider','min'),
+	Output('cur_time_slider','max')],
 	[Input('subject','value'),
 	Input('session','value')])
 def updateGraphs(subject,session):
@@ -264,45 +307,44 @@ def updateGraphs(subject,session):
 	try:
 		print (type(np.arange(ECGData['EcgWaveform'].size)))
 		print (type(ECGData['EcgWaveform'].values))
-		fig={
-		'data': [
-			{
-				# 'x': np.arange(ECGData['EcgWaveform'].size),
-		        # 'y': ECGData['EcgWaveform'].values,
-		        'x': np.arange(ECGData['EcgWaveform'].size),
-		        'y': ECGData['EcgWaveform'].values,
-		        # 'text': ['a', 'b', 'c', 'd'],
-		        # 'customdata': ['c.a', 'c.b', 'c.c', 'c.d'],
-		        'name': 'ECG'
-		        # 'mode': 'markers',
-		        # 'marker': {'size': 12}
-		    } #,
-		    # {
-		    #     'x': [1, 2, 3],
-		    #     'y': [9, 4, 1],
-		    #     'text': ['w', 'x', 'y'],
-		    #     'customdata': ['c.w', 'c.x', 'c.y'],
-		    #     'name': 'Trace 2',
-		    #     'mode': 'markers',
-		    #     'marker': {'size': 14}
-		    # }
-		    ],
-		    'layout': {
-		        # 'clickmode': 'event+select',
-		        'height':350,
-		        'name':'tst name',
-		        'title':'Continuous time signals'
-		    },
-		    # 'config': {
-		    # 	'editable':'true'}
 
-
-	    }
-	    
-	except:
+		fig=dict(
+			data=[dict(
+				x=ECGData['Time'].values,
+				y=ECGData['EcgWaveform'].values,
+		        name='ECG'
+				),
+				dict(
+				type='scatter',
+				x=ECGData['Time'].values,
+				y=ECGData['EcgWaveform'].values+10,
+		        name='ECG12'
+				)],
+			layout=dict(
+				height=350,
+				name='tst name',
+				title='Continuous time signals')
+			)
+		# print(fig)
+		# fig={
+		# 'data': [
+		# 	{
+		# 		'x': ECGData['Time'].values,
+		#         'y': ECGData['EcgWaveform'].values,
+		#         'name': 'ECG'
+		#     }],
+		#     'layout': {
+		#     	'height':350,
+		#         'name':'tst name',
+		#         'title':'Continuous time signals'
+		#         }
+	 #    	}
+	except Exception as e:
 		print('Error on creating figure')
+		print(e)
 		fig ={}
-	return fig
+	
+	return fig,minSliderBar,maxSliderBar
 	
 
 

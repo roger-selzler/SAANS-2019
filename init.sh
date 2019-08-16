@@ -14,16 +14,34 @@ echo $(pip --version)
 wget -qO - https://download.sublimetext.com/sublimehq-pub.gpg | sudo apt-key add -
 echo "deb https://download.sublimetext.com/ apt/stable/" | sudo tee /etc/apt/sources.list.d/sublime-text.list
 sudo apt-get update
-sudo apt-get install sublime-text
-# -- add python autocompletion support
-cd ~/.config/sublime-text-3/Packages/
-git clone https://github.com/srusskih/SublimeJEDI.git "Jedi - Python autocompletion" 
+sudo apt-get install sublime-text 
 
 # -- Install virtual environment -- 
 echo "Installing virtualenv"
 pip install virtualenv
 virtualenv /venv
 source /venv/bin/activate
-pip install tensorflow tensorboard numpy dash dash-daq paramiko pandas
+pip install tensorflow tensorboard numpy dash dash-daq paramiko pandas jedi
+# -- add python autocompletion support for Sublime
+cd ~/.config/sublime-text-3/Packages/
+git clone https://github.com/srusskih/SublimeJEDI.git "Jedi - Python auto      completion"
+# -- add autocompletion functionalities for vim
+cd ~/ 
+sudo apt-get install curl vim exuberant-ctags git ack-grep
+sudo pip install pep8 flake8 pyflakes isort yapf 
+wget https://raw.github.com/fisadev/fisa-vim-config/master/.vimrc -O ~/.vimrc
+vim -c :q! ~/.vimrc
+
+# Create autocompletion for python on bash shell
+[ -f ~/.pythonrc ] && echo "File ~/.pythonrc already exist" || touch ~/.pythonrc && echo "try:
+    import readline
+    import rlcompleter
+    readline.parse_and_bind(\"tab: complete\")
+except ImportError:
+    print(\"Module readline not available.\")" > ~/.pythonrc
+
+[ -f ~/.bashrc ] || touch ~/.bashrc 
+grep -qxF 'export PYTHONSTARTUP=~/.pythonrc' ~/.bashrc && echo 'export PYTHONSTARTUP=~/.pythonrc already exists on ~/.bashrc' || echo 'export PYTHONSTARTUP=~/.pythonrc' >> ~/.bashrc
+
 deactivate
 
