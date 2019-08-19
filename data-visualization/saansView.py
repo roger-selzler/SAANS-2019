@@ -3,7 +3,7 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_bootstrap_components as dbc
-from dash.dependencies import Input,Output
+from dash.dependencies import Input,Output,State
 import base64
 import paramiko
 import re
@@ -22,17 +22,18 @@ import webbrowser
 DATAFOLDER = "/var/www/rawdata/data/"
 TEMPFOLDER = os.path.expanduser('~/temp')
 USERNAME = 'rogerselzler'
-SERVER = '172.16.59.3'
-
-
+# SERVER = '172.16.59.3'
+SERVER = 'saans.ca'
+FIXEDPORT = True # used to debug or open new window
+DEBUGMODE = True
 
 minSliderBar = 0;
 maxSliderBar = 0;
 
-os.system('clear')
+# os.system('clear')
 
 # -- Create a port and check if it is being used. 
-PORT = 0
+PORT = 8050
 def selectPort():
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	while True:
@@ -47,13 +48,6 @@ def selectPort():
 			break
 	return PORT 
 
-PORT = selectPort()
-
-
-
-# ECGData = np.zeros(shape=(0,0))
-
-# ECGData = [];
 def execCommand(cmd):
 	print("executing command: " + cmd)
 	client = paramiko.SSHClient()
@@ -166,9 +160,6 @@ def loadData(subject, session,files):
 			
 
 
-
-
-
 SUBJECTS = requestSubjects()
 
 # -- configuration of the layout
@@ -181,7 +172,6 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 
 app.layout = html.Div([
-
 	html.Div(
 		html.H1('SAANS visualization tool'),
 		style={'text-align':'center'}),
@@ -195,6 +185,31 @@ app.layout = html.Div([
 		html.Label('Session'),  
 	    dcc.Dropdown (id='session')
 	    ],style={'columnCount':2}), # set to 2 for full page
+	html.Nav([
+		html.Div([
+			html.I(id='stop_Btn', n_clicks=0, className='fa fa-stop',style={'padding':10}),
+			html.I(id='play_Btn', n_clicks=0, className='fa fa-play',style={'padding':10}),
+			html.I(id='fast_backward_Btn', n_clicks=0, className='fa fa-fast-backward',style={'padding':10}),
+			html.I(id='backward_Btn', n_clicks=0, className='fa fa-backward',style={'padding':10}),
+			html.I(id='pause_Btn', n_clicks=0, className='fa fa-pause',style={'padding':10}),
+			html.I(id='forward_Btn', n_clicks=0, className='fa fa-forward',style={'padding':10}),
+			html.I(id='fast_forward_Btn', n_clicks=0, className='fa fa-fast-forward',style={'padding':10}),
+			html.I(id='decreaseXlim_Btn', n_clicks=0, className='fa fa-minus',style={'padding':10}),
+			html.I(id='increaseXlim_Btn', n_clicks=0, className='fa fa-plus',style={'padding':10})
+			],style={'text-align':'center','width':'100%'}),
+		html.Div([
+			dcc.Slider(
+    		id='cur_time_slider',
+    		min=minSliderBar,
+    		max=maxSliderBar,
+    		value=minSliderBar)
+    		],style={'width':'90%','text-align':'center','margin-left':'5%'})
+		],style={
+		'position':'sticky',
+		'top':'0'
+		# 'text-align':'center',
+		# 'bottom':'0','border':'1px solid','width':'90%','background-position': 'top','background-color':'green'
+		}),
     # html.Div([
     # 	dcc.Graph(
 	   #      id= '3DGraph' ,
@@ -227,45 +242,35 @@ app.layout = html.Div([
     		}
     		)
     	],
-    	
     	),    
     html.Div([
-    	dcc.Slider(
-    		id='cur_time_slider',
-    		min=minSliderBar,
-    		max=maxSliderBar,
-    		value=minSliderBar)
-    	],style={
-    		'columnCount':1,
-    		'height':16
-    	}),
-    html.Div([
-    	# html.Div([
-    		html.I(id='stop_Btn', n_clicks=0, className='fa fa-stop',style={'padding':10}),
-    		html.I(id='play_Btn', n_clicks=0, className='fa fa-play',style={'padding':10}),
-    		html.I(id='fast_backward_Btn', n_clicks=0, className='fa fa-fast-backward',style={'padding':10}),
-    		html.I(id='backward_Btn', n_clicks=0, className='fa fa-backward',style={'padding':10}),
-    		html.I(id='pause_Btn', n_clicks=0, className='fa fa-pause',style={'padding':10}),
-    		html.I(id='forward_Btn', n_clicks=0, className='fa fa-forward',style={'padding':10}),
-    		html.I(id='fast_forward_Btn', n_clicks=0, className='fa fa-fast-forward',style={'padding':10}),
-    		html.I(id='decreaseXlim_Btn', n_clicks=0, className='fa fa-minus',style={'padding':10}),
-    		html.I(id='increaseXlim_Btn', n_clicks=0, className='fa fa-plus',style={'padding':10})
-    		
-    		# ],style={'padding':10}),
-	   #  html.Div([html.I(id='pauseBtn', n_clicks=0, className='fa fa-pause')],'style'={'padding':10}),
-	   #  html.Div([html.I(id='submit-button', n_clicks=0, className='fa fa-play')],'style'={'padding':10})
-	   #  ],style={
-	   #  'align-items':'center',
-	   #  'padding':100
-		],style={
-		'columnCount':1,
-		'textAlign':'center'
-		}),
-    html.Div(id='messageContainer',children='test'),
+    	dbc.Button("List of files",id='buttonListOfFiles'),
+    	dbc.Modal([
+    		dbc.ModalHeader("List of Files"),
+    		dbc.ModalBody([
+    			html.Div(id='hiddenListOfFiles',style={'display':'true','columnCount':1})
+    			]),
+    		dbc.Button("Close",id='closehiddenListOfFiles',className='ml-auto')
+    		],id='listOfFilesDialog',is_open=True)
+    	]),
+	html.Div(id='messageContainer',children='test'),
     # html.Div(id='hiddenListOfFiles',style={'display':'true','columnCount':3}),
-    html.Div(id='xAxisLimValue',children=30,style={'display':'true','columnCount':3}),
-	html.Div(id='hiddenListOfFiles',style={'display':'true','columnCount':3})
-    ])
+    html.Div(id='xAxisLimValue',children=30,style={'display':'true','columnCount':2}),
+    html.Div([
+    	dcc.Graph(
+    		id='timeSeriesGrap2h',
+    		figure={
+    			'layout': {
+			        # 'clickmode': 'event+select',
+			        'height':350,
+			        'name':'tst name',
+			        'title':'Continuous time signals'
+			    }
+    		}
+    		)
+    	],
+    	),
+	])
 
 # -- Adjust the time displayed on the ECG graph
 @app.callback(Output('xAxisLimValue','children'),
@@ -285,17 +290,7 @@ def storeFileNames(subject, session):
 	# print(type(s))
 	return(s)
 
-# @app.callback(Output('messageContainer','children'),
-# 	[Input('session','value')])
-# def updateMessage(input):
-# 	if type(input) == list:
-# 		print("is list!!!")
-# 		# print(s)
-# 	else:
-# 		s=input
-# 	print(type(s))
-# 	print(s)
-# 	return html.Div(s)
+
 
 # https://dash.plot.ly/live-updates
 @app.callback(
@@ -357,12 +352,24 @@ def updateGraphs(subject,session):
 		fig ={}
 	
 	return fig,minSliderBar,maxSliderBar
-	
+
+@app.callback(Output('listOfFilesDialog','is_open'),
+	[Input('buttonListOfFiles','n_clicks'),
+	Input('closehiddenListOfFiles','n_clicks')],
+	[State('listOfFilesDialog','is_open')],
+	)
+def toggleListOfFilesDialog(i1,i2,is_open):
+	if i1 or i2:
+		return not is_open
+	return is_open
 
 # try:
 # execCommand('firefox \'localhost:' + str(PORT) + '\' &')
-webbrowser.open('localhost:' + str(PORT))
+if not FIXEDPORT:
+	PORT = selectPort()
+	webbrowser.open('localhost:' + str(PORT))
+
 if __name__ == '__main__':
-	app.run_server(debug=False,port=PORT)
+	app.run_server(debug=DEBUGMODE,port=PORT)
     
 
