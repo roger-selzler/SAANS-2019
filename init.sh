@@ -21,7 +21,7 @@ echo "Installing virtualenv"
 pip install virtualenv
 virtualenv /venv
 source /venv/bin/activate
-pip install tensorflow tensorboard numpy dash dash-daq paramiko pandas jedi
+pip install tensorflow tensorboard numpy dash dash-daq dash-bootstrap-components paramiko pandas jedi
 # -- add python autocompletion support for Sublime
 cd ~/.config/sublime-text-3/Packages/
 git clone https://github.com/srusskih/SublimeJEDI.git "Jedi - Python auto      completion"

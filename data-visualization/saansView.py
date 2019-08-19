@@ -2,6 +2,7 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_bootstrap_components as dbc
 from dash.dependencies import Input,Output
 import base64
 import paramiko
@@ -14,6 +15,10 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
+import random
+import socket
+import webbrowser
+
 DATAFOLDER = "/var/www/rawdata/data/"
 TEMPFOLDER = os.path.expanduser('~/temp')
 USERNAME = 'rogerselzler'
@@ -25,6 +30,25 @@ minSliderBar = 0;
 maxSliderBar = 0;
 
 os.system('clear')
+
+# -- Create a port and check if it is being used. 
+PORT = 0
+def selectPort():
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	while True:
+		PORT = random.randint(8000, 10000)
+		result = sock.connect_ex(('localhost',PORT))
+		if result == 0:
+			print "Port " + str(PORT) + " is in use."
+			sock.close()			
+		else:
+			print "Port " + str(PORT) + " is available."
+			sock.close()
+			break
+	return PORT 
+
+PORT = selectPort()
+
 
 
 # ECGData = np.zeros(shape=(0,0))
@@ -157,6 +181,7 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 
 app.layout = html.Div([
+
 	html.Div(
 		html.H1('SAANS visualization tool'),
 		style={'text-align':'center'}),
@@ -325,20 +350,7 @@ def updateGraphs(subject,session):
 				name='tst name',
 				title='Continuous time signals')
 			)
-		# print(fig)
-		# fig={
-		# 'data': [
-		# 	{
-		# 		'x': ECGData['Time'].values,
-		#         'y': ECGData['EcgWaveform'].values,
-		#         'name': 'ECG'
-		#     }],
-		#     'layout': {
-		#     	'height':350,
-		#         'name':'tst name',
-		#         'title':'Continuous time signals'
-		#         }
-	 #    	}
+		
 	except Exception as e:
 		print('Error on creating figure')
 		print(e)
@@ -347,7 +359,10 @@ def updateGraphs(subject,session):
 	return fig,minSliderBar,maxSliderBar
 	
 
-
+# try:
+# execCommand('firefox \'localhost:' + str(PORT) + '\' &')
+webbrowser.open('localhost:' + str(PORT))
 if __name__ == '__main__':
-    app.run_server(debug=True)
+	app.run_server(debug=False,port=PORT)
+    
 
