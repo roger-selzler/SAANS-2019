@@ -57,9 +57,13 @@ def execCommand(cmd):
 	exitStatus = stdout.channel.recv_exit_status()
 	if exitStatus == 0:
 		print ("cmd \"" + cmd + "\" successfull.")
+		status = 0
 	else:
-		print ("cmd \"" + cmd + "\" returned an error: " + str(exitStatus))
+		print ("cmd \"" + cmd + "\" returned an error: " + str(exitStatus) + "\n\n\n")
+		status = 1
+		
 	client.close()
+	return status
 	
 
 def requestSubjects():
@@ -120,12 +124,23 @@ def downloadFiles(subject,session,filename):
 				print ('downloading file: ' + fileX)
 				print(TEMPFOLDER + os.sep + fileX)
 				print(DATAFOLDER + subject + os.sep + session + os.sep + fileX)
-				cmd = 'scp ' + DATAFOLDER + subject + os.sep + session + os.sep + fileX + ' ' + USERNAME + '@172.16.59.24:' + TEMPFOLDER + os.sep + fileX
+				cmd = 'scp ' + USERNAME + '@' + SERVER + ':' + DATAFOLDER + subject + os.sep + session + os.sep + fileX + ' ' + TEMPFOLDER + os.sep + fileX
 				print(cmd)
-				execCommand(cmd)
+				status = execCommand(cmd)
+				if status != 0:
+					print ('Command execution returned status ' + str(status))
+					client = paramiko.SSHClient()
+					host_keys = client.load_system_host_keys()
+					client.connect(SERVER,username=USERNAME)
+					ftpClient = client.open_sftp()
+					ftpClient.get(DATAFOLDER + subject + os.sep + session + os.sep + fileX,
+						TEMPFOLDER + os.sep + fileX)
+					ftpClient.close()
+					client.close()
+	
 
 			else:
-				print (fileX + " already exist!")
+				print (fileX + " already exist!") 
 	elif type(filename) == str:
 		print ('downloading file: ' + filename)
 		print(TEMPFOLDER + os.sep + filename)
