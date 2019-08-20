@@ -1,3 +1,4 @@
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
 import dash
 import dash_core_components as dcc
@@ -10,7 +11,7 @@ import re
 from datetime import datetime
 import time
 import csv
-import os,sys
+import os,sys,getopt
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -19,21 +20,46 @@ import random
 import socket
 import webbrowser 
 
+# os.system('clear')
+
+
 DATAFOLDER = "/var/www/rawdata/data/"
 TEMPFOLDER = os.path.expanduser('~/temp')
-USERNAME = 'rogerselzler'
-# SERVER = '172.16.59.3'
 SERVER = 'saans.ca'
-FIXEDPORT = True # used to debug or open new window
-DEBUGMODE = True
+PORT = None
+
+FIXEDPORT = False # used to debug or open new window
+DEBUGMODE = True # if true, it updates the browser when the code changes.
 
 minSliderBar = 0;
 maxSliderBar = 0;
 
-# os.system('clear')
+# -- options for running this file.
+try:
+	opts,args = getopt.getopt(sys.argv[1:], "hu:p:",["username=","port="])
+	# print(opts)
+	# print(args)
+except getopt.GetoptError:
+	print('saansView.py -u <username> -p <port>')
+	sys.exit(2)
+for opt, arg in opts:
+	if opt in ('-h','help'):
+		print('saansView.py -u <username> -p <port>')
+		sys.exit(2)
+	elif opt in ('-u','--username'):
+		USERNAME = arg
+	elif opt in ('-p','--port'):
+		PORT = arg
+	print(' ')
+
+
+
+
+
+
+
 
 # -- Create a port and check if it is being used. 
-PORT = 8050
 def selectPort():
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	while True:
@@ -380,9 +406,11 @@ def toggleListOfFilesDialog(i1,i2,is_open):
 
 # try:
 # execCommand('firefox \'localhost:' + str(PORT) + '\' &')
-if not FIXEDPORT:
+if (not FIXEDPORT) and PORT == None:
 	PORT = selectPort()
-	webbrowser.open('localhost:' + str(PORT))
+	# webbrowser.open('localhost:' + str(PORT))
+elif PORT == None:
+	PORT = 8050
 
 if __name__ == '__main__':
 	app.run_server(debug=DEBUGMODE,port=PORT)
