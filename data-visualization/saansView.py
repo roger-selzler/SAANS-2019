@@ -31,9 +31,18 @@ PORT = None
 FIXEDPORT = False # used to debug or open new window
 DEBUGMODE = True # if true, it updates the browser when the code changes.
 
+AGILEMODE = False
+if AGILEMODE:
+	MAXSIGNALLENGTH = -10000 # -1 for the entire length
+	MINSIGNALLENGTH = -12000
+else:
+	MAXSIGNALLENGTH = -1 # -1 for the entire length
+	MINSIGNALLENGTH = 0
+
 minSliderBar = 0;
 maxSliderBar = 0;
 
+# timeSeriesFig = go.Figure()
 # -- options for running this file.
 try:
 	opts,args = getopt.getopt(sys.argv[1:], "hu:p:",["username=","port="])
@@ -51,11 +60,6 @@ for opt, arg in opts:
 	elif opt in ('-p','--port'):
 		PORT = arg
 	print(' ')
-
-
-
-
-
 
 
 
@@ -90,7 +94,6 @@ def execCommand(cmd):
 		
 	client.close()
 	return status
-	
 
 def requestSubjects():
 	client = paramiko.SSHClient()
@@ -173,32 +176,78 @@ def downloadFiles(subject,session,filename):
 
 def loadData(subject, session,files):
 	print('Loading files' )
-	ecgfiles =[];
-	global ECGData
-	ECGData = None
-	for i in files:
-		if 'ECG.csv' in i:
-			ecgfiles.append(i)
-	if len(ecgfiles) > 0:
-		print(ecgfiles[0])
-	downloadFiles(subject, session, ecgfiles)
-	if len(ecgfiles) > 0:
-		print("length of ecgfiles is: " + str(len(ecgfiles)))
-		if os.path.isfile(TEMPFOLDER + os.sep + ecgfiles[0]):	
-			ECGData = pd.read_csv(TEMPFOLDER + os.sep + ecgfiles[0])
-			print(ECGData.head())
-			# print(type((ECGData['Time'])))
-			# ECGData['Time'] = time.mktime(datetime.datetime.strptime(pd.Series.to_string(ECGData['Time']),"%d/%m/%Y %H:%M:%S.%f"))
-			# print(ECGData.head())
-		else:
-			ECGData = None
-		DATE = [(datetime.strptime(x,"%d/%m/%Y %H:%M:%S.%f")) for x in ECGData['Time']]
-		ECGData['Time']=pd.Series([time.mktime(x.timetuple()) + x.microsecond/1e6 for x in DATE])
-		print(ECGData.head())
+	ecgfiles = [];
+	filesForDownload = [];
+	global ECGData,BreathingData	
+	matchers = ['ECG.csv','Breathing.csv']
+	filesForDownload = [s for s in files if any(ss in s for ss in matchers)]
+	downloadFiles(subject, session, filesForDownload)
+	# print(str(type(filesForDownload)))
+	for fileX in filesForDownload:
+		if os.path.isfile(TEMPFOLDER + os.sep + fileX):
+			if 'ECG.csv' in fileX:
+				print ('Loading ' + fileX + ' into ECGData')
+				ECGData = pd.read_csv(TEMPFOLDER + os.sep + fileX)
+				ECGData['Time']=pd.to_datetime(ECGData['Time'],format="%d/%m/%Y %H:%M:%S.%f")
+				print('Format of ECGData is ' + str(type(ECGData)))
+			elif 'Breathing.csv' in fileX:
+				print ('Loading ' + fileX + ' into BreathingData')
+				BreathingData = pd.read_csv(TEMPFOLDER + os.sep + fileX)
+				BreathingData['Time']=pd.to_datetime(BreathingData['Time'],format="%d/%m/%Y %H:%M:%S.%f")
+				print(list(BreathingData))
+				print('Format of BreathingData is ' + str(type(BreathingData)))
+		
+	
 
-		minSliderBar = ECGData['Time'].iloc[0]
-		maxSliderBar = ECGData['Time'].iloc[-1]
-			
+	minSliderBar = ECGData['Time'].iloc[0]
+	maxSliderBar = ECGData['Time'].iloc[-1]
+
+	# for i in files:
+	# 	if 'ECG.csv' in i:
+	# 		filesForDownload.append(i)
+	# 		ecgfiles.append(i)
+	# 		# print(filesForDownload)
+	# if len(ecgfiles) > 0:
+	# 	print(ecgfiles[0])
+	# downloadFiles(subject, session, ecgfiles)
+	# if len(ecgfiles) > 0:
+	# 	print("length of ecgfiles is: " + str(len(ecgfiles)))
+	# 	if os.path.isfile(TEMPFOLDER + os.sep + ecgfiles[0]):	
+	# 		ECGData = pd.read_csv(TEMPFOLDER + os.sep + ecgfiles[0])
+	# 		ECGData['Time']=pd.to_datetime(ECGData['Time'],format="%d/%m/%Y %H:%M:%S.%f")
+	# 		# print(ECGData.head())
+	# 		# print(type((ECGData['Time'])))
+	# 		# ECGData['Time'] = time.mktime(datetime.datetime.strptime(pd.Series.to_string(ECGData['Time']),"%d/%m/%Y %H:%M:%S.%f"))
+	# 		# print(ECGData.head())
+	# 	else:
+	# 		ECGData = None
+	# 	# DATE = [(datetime.strptime(x,"%d/%m/%Y %H:%M:%S.%f")) for x in ECGData['Time']]
+	# 	# ECGData['Time']=pd.Series([time.mktime(x.timetuple()) + x.microsecond/1e6 for x in DATE])
+	# 	print(ECGData.head())
+
+		
+
+	
+def prepareFigures():
+	fig = go.Figure()
+	fig.add_trace(
+		go.Scatter(
+			x=ECGData['Time'].iloc[MINSIGNALLENGTH:MAXSIGNALLENGTH],
+			y=ECGData['EcgWaveform'].iloc[MINSIGNALLENGTH:MAXSIGNALLENGTH],
+			name='ECG',
+			mode='lines+markers'))
+	fig.add_trace(
+		go.Scatter(
+			x=BreathingData['Time'].iloc[MINSIGNALLENGTH:MAXSIGNALLENGTH],
+			y=BreathingData['BreathingWaveform'].iloc[MINSIGNALLENGTH:MAXSIGNALLENGTH],
+			name='Breathing',
+			mode = 'lines+markers'))
+	fig.update_layout(
+		title="Time Series Data"
+		)
+	# print(fig.to_dict())
+	return fig.to_dict()
+
 
 
 SUBJECTS = requestSubjects()
@@ -250,26 +299,7 @@ app.layout = html.Div([
 		'top':'0'
 		# 'text-align':'center',
 		# 'bottom':'0','border':'1px solid','width':'90%','background-position': 'top','background-color':'green'
-		}),
-    # html.Div([
-    # 	dcc.Graph(
-	   #      id= '3DGraph' ,
-	   #      figure={
-	   #      	'layout': {
-			 #        # 'clickmode': 'event+select',
-			 #        # 'height':350,
-			 #        # 'width':350,
-			 #        'mode':'lines',
-			 #        'name':'tst name',
-			 #        'title':'3D Movement'
-			 #        # 'textAlign':'center'
-			 #    }
-    # 		}
-	   #  )
-    # 	],style={'textAlign':'center',
-    # 		'width':'50%',
-    # 		'backgroundColor':'blue'}
-    # ),
+		}),		
     html.Div([
     	dcc.Graph(
     		id='timeSeriesGraph',
@@ -366,33 +396,34 @@ def updateGraphs(subject,session):
 	# print(FILES)
 	# updateMessage('test new...')
 	try:
-		print (type(np.arange(ECGData['EcgWaveform'].size)))
-		print (type(ECGData['EcgWaveform'].values))
-
-		fig=dict(
-			data=[dict(
-				x=ECGData['Time'].values,
-				y=ECGData['EcgWaveform'].values,
-		        name='ECG'
-				),
-				dict(
-				type='scatter',
-				x=ECGData['Time'].values,
-				y=ECGData['EcgWaveform'].values+10,
-		        name='ECG12'
-				)],
-			layout=dict(
-				height=350,
-				name='tst name',
-				title='Continuous time signals')
-			)
+		# print (type(np.arange(ECGData['EcgWaveform'].size)))
+		# print (type(ECGData['EcgWaveform'].values))
+		tfig = prepareFigures()
+		# fig=dict(
+		# 	data=[dict(
+		# 		x=ECGData['Time'].values,
+		# 		y=ECGData['EcgWaveform'].values,
+		#         name='ECG'
+		# 		),
+		# 		dict(
+		# 		type='scatter',
+		# 		x=ECGData['Time'].values,
+		# 		y=ECGData['EcgWaveform'].values+10,
+		#         name='ECG12'
+		# 		)],
+		# 	layout=dict(
+		# 		height=350,
+		# 		name='tst name',
+		# 		title='Continuous time signals')
+		# 	)
 		
 	except Exception as e:
 		print('Error on creating figure')
 		print(e)
-		fig ={}
+		tfig ={}
 	
-	return fig,minSliderBar,maxSliderBar
+	# print(timeSeriesFig)
+	return tfig,minSliderBar,maxSliderBar
 
 @app.callback(Output('listOfFilesDialog','is_open'),
 	[Input('buttonListOfFiles','n_clicks'),
@@ -404,8 +435,7 @@ def toggleListOfFilesDialog(i1,i2,is_open):
 		return not is_open
 	return is_open
 
-# try:
-# execCommand('firefox \'localhost:' + str(PORT) + '\' &')
+
 if (not FIXEDPORT) and PORT == None:
 	PORT = selectPort()
 	# webbrowser.open('localhost:' + str(PORT))
