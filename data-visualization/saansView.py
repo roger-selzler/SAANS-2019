@@ -17,7 +17,7 @@ import plotly.graph_objects as go
 
 import random
 import socket
-import webbrowser
+import webbrowser 
 
 DATAFOLDER = "/var/www/rawdata/data/"
 TEMPFOLDER = os.path.expanduser('~/temp')
@@ -97,7 +97,7 @@ def requestSessions(subject):
 	SESSIONS = [ a for a in SESSIONS if a.isnumeric() ]
 	SESSIONS.sort(key=float)
 	sessionoptions = []
-	for i in SESSIONS:
+	for i in SESSIONS: 
 		sessionoptions.append({'label':str(i),'value':str(i)})
 	client.close()
 	return sessionoptions
