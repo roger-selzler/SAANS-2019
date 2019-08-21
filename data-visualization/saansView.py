@@ -31,7 +31,7 @@ PORT = None
 FIXEDPORT = False # used to debug or open new window
 DEBUGMODE = True # if true, it updates the browser when the code changes.
 
-AGILEMODE = False
+AGILEMODE = True
 if AGILEMODE:
 	MAXSIGNALLENGTH = -10000 # -1 for the entire length
 	MINSIGNALLENGTH = -12000
