@@ -19,6 +19,7 @@ import plotly.graph_objects as go
 import random
 import socket
 import webbrowser 
+import viconData
 
 os.system('clear')
 
@@ -33,7 +34,7 @@ DEBUGMODE = True # if true, it updates the browser when the code changes.
 
 AGILEMODE = True
 if AGILEMODE:
-	MAXSIGNALLENGTH = -10000 # -1 for the entire length
+	MAXSIGNALLENGTH = -11500 # -1 for the entire length
 	MINSIGNALLENGTH = -12000
 else:
 	MAXSIGNALLENGTH = -1 # -1 for the entire length
@@ -43,6 +44,8 @@ minSliderBar = 0;
 maxSliderBar = 0;
 ECGData=pd.DataFrame()
 BreathingData=pd.DataFrame()
+sessionData = []
+
 # timeSeriesFig = go.Figure()
 # -- options for running this file.
 try:
@@ -142,36 +145,39 @@ def requestListOfFiles(subject,session):
 	for line in stdout:
 		FILES.append(line.strip('\n'))
 	client.close()
-	return FILES
+	return FILES 
 
 def downloadFiles(subject,session,filename):
+	if subject == None:
+		subject = 1
+	if session == None:
+		session = 1
 	if not os.path.isdir(TEMPFOLDER):
-		print('Folder ' + TEMPFOLDER + ' does not exist')
+		print('Folder ' + TEMPFOLDER + ' does not exist  -> creating')
 		os.mkdir(TEMPFOLDER,0755)
+	if not os.path.isdir(TEMPFOLDER + os.sep  + subject):
+		print('Folder ' + TEMPFOLDER + os.sep + subject + ' does not exist -> creating')
+		os.mkdir(TEMPFOLDER + os.sep + subject,0755)
+	if not os.path.isdir(TEMPFOLDER + os.sep  + subject + os.sep  + session):
+		print('Folder ' + TEMPFOLDER + os.sep  + subject + os.sep  + session + ' does not exist -> creating')
+		os.mkdir(TEMPFOLDER + os.sep + subject + os.sep  + session,0755)
+
+		
 	if type(filename) == list:
 		for fileX in filename:
-			if not os.path.isfile(TEMPFOLDER + os.sep + fileX):
-				print ('downloading file: ' + fileX)
-	# print(TEMPFOLDER + os.sep + fileX)
-	# print(DATAFOLDER + subject + os.sep + session + os.sep + fileX)
-	# cmd = 'scp ' + USERNAME + '@' + SERVER + ':' + DATAFOLDER + subject + os.sep + session + os.sep + fileX + ' ' + TEMPFOLDER + os.sep + fileX
-	# print(cmd)
-	# status = execCommand(cmd)
-	# if status != 0:
-	# print ('Command execution returned status ' + str(status))
+			if not os.path.isfile(TEMPFOLDER + os.sep  + subject + os.sep  + session + os.sep + fileX):
+				print ('downloading file: ' + fileX) 
 				try:
 					client = paramiko.SSHClient()
 					host_keys = client.load_system_host_keys()
 					client.connect(SERVER,username=USERNAME)
 					ftpClient = client.open_sftp()
 					ftpClient.get(DATAFOLDER + subject + os.sep + session + os.sep + fileX,
-						TEMPFOLDER + os.sep + fileX)
+						TEMPFOLDER + os.sep  + subject + os.sep  + session + os.sep + fileX)
 					ftpClient.close()
 					client.close()
 				except Exception as e:
 					print(e)
-	
-
 			else:
 				print (fileX + " already exist!") 
 	elif type(filename) == str:
@@ -181,23 +187,23 @@ def downloadFiles(subject,session,filename):
 def loadData(subject, session,files):
 	print('Loading files' )
 	# ecgfiles = [];
-	global ECGData,BreathingData
-	filesForDownload = [];	
+	global ECGData,BreathingData,sessionData
 	matchers = ['ECG.csv','Breathing.csv']
+	# filesForDownload = [];	
 	filesForDownload = [s for s in files if any(ss in s for ss in matchers)]
 	downloadFiles(subject, session, filesForDownload)
 	# print(str(type(filesForDownload)))
 	for fileX in filesForDownload:
-		if os.path.isfile(TEMPFOLDER + os.sep + fileX):
+		if os.path.isfile(TEMPFOLDER + os.sep  + subject + os.sep  + session + os.sep + fileX):
 			if 'ECG.csv' in fileX:
 				print ('Loading ' + fileX + ' into ECGData')
-				ECGData = pd.read_csv(TEMPFOLDER + os.sep + fileX)
+				ECGData = pd.read_csv(TEMPFOLDER + os.sep  + subject + os.sep  + session + os.sep + fileX)
 				ECGData['Time']=pd.to_datetime(ECGData['Time'],format="%d/%m/%Y %H:%M:%S.%f")
 				print('Format of ECGData is ' + str(type(ECGData)) + 
 				 ', with size: ' + str(ECGData.size))
 			elif 'Breathing.csv' in fileX:
 				print ('Loading ' + fileX + ' into BreathingData')
-				BreathingData = pd.read_csv(TEMPFOLDER + os.sep + fileX)
+				BreathingData = pd.read_csv(TEMPFOLDER + os.sep  + subject + os.sep  + session + os.sep + fileX)
 				BreathingData['Time']=pd.to_datetime(BreathingData['Time'],format="%d/%m/%Y %H:%M:%S.%f")
 				print(list(BreathingData))
 				print('Format of BreathingData is ' + str(type(BreathingData)) + 
@@ -210,35 +216,28 @@ def loadData(subject, session,files):
 	else:
 		minSliderBar = ECGData['Time'].iloc[0]
 		maxSliderBar = ECGData['Time'].iloc[-1]
-	print ('Finished loading data')
-	# for i in files:
-	# 	if 'ECG.csv' in i:
-	# 		filesForDownload.append(i)
-	# 		ecgfiles.append(i)
-	# 		# print(filesForDownload)
-	# if len(ecgfiles) > 0:
-	# 	print(ecgfiles[0])
-	# downloadFiles(subject, session, ecgfiles)
-	# if len(ecgfiles) > 0:
-	# 	print("length of ecgfiles is: " + str(len(ecgfiles)))
-	# 	if os.path.isfile(TEMPFOLDER + os.sep + ecgfiles[0]):	
-	# 		ECGData = pd.read_csv(TEMPFOLDER + os.sep + ecgfiles[0])
-	# 		ECGData['Time']=pd.to_datetime(ECGData['Time'],format="%d/%m/%Y %H:%M:%S.%f")
-	# 		# print(ECGData.head())
-	# 		# print(type((ECGData['Time'])))
-	# 		# ECGData['Time'] = time.mktime(datetime.datetime.strptime(pd.Series.to_string(ECGData['Time']),"%d/%m/%Y %H:%M:%S.%f"))
-	# 		# print(ECGData.head())
-	# 	else:
-	# 		ECGData = None
-	# 	# DATE = [(datetime.strptime(x,"%d/%m/%Y %H:%M:%S.%f")) for x in ECGData['Time']]
-	# 	# ECGData['Time']=pd.Series([time.mktime(x.timetuple()) + x.microsecond/1e6 for x in DATE])
-	# 	print(ECGData.head())
+		print "minSliderBar" , minSliderBar
+		print "maxSliderBar", maxSliderBar
+	print ('Finished loading ECG and Breathing data')
 
+	# - session data info extracted from Vicon
+	filesForDownload = [];
+	for file in files:
+		if re.search(r'TR[0-9]+.txt',file) != None:
+			filesForDownload.append(file)
+	downloadFiles(subject, session, filesForDownload)
+	sessionData = []
+	for fileX in filesForDownload:
+		try:
+			sData = viconData.readViconDataSession(os.path.expanduser('~/temp/' + subject + os.sep + session + os.sep + fileX))
+			sessionData.append(sData)
+		except Exception as e:
+			print e
 		
 
-	
-def prepareFigures():
-	print('Preparing figures to plot')
+		
+def prepareTimeSeriesGraph():
+	print('Preparing time series graph')
 	fig = go.Figure()
 	try:
 		print('Preparing ECG trace')
@@ -273,6 +272,64 @@ def prepareFigures():
 		)
 	print('Figures prepared. Returning figures to plot.')
 	return fig.to_dict()
+
+def prepareSessionGraph():
+	print('Preparing session graph')
+	fig = go.Figure()
+
+	for sData in sessionData:
+		print list(sData)
+		fig.add_trace(
+			go.Scatter(
+				x=sData['time'],
+				y=sData['Heart Rate'],
+				name='S' + str(sessionData.index(sData)) + " Heart Rate",
+				mode='lines'
+				)
+			)
+		fig.add_trace(
+			go.Scatter(
+				x=sData['time'],
+				y=sData['Breathing Rate'],
+				name='S' + str(sessionData.index(sData)) + " Breathing",
+				mode='lines'
+				)
+			)
+	shapes = list()
+	for sData in sessionData:
+		shapes.append(dict(
+			type='rect',
+			x0 = sData['startTime'],
+			x1 = sData['endTime'],
+			y0 = -100,
+			y1 = 100,
+			line = dict(
+				color="RoyalBlue",
+				width=2),
+			# fillcolor="None"
+			))
+	fig.update_layout(
+		shapes=shapes
+		# go.layout.Shape(
+		# 	type="rect",
+		# 	x0=1,
+		# 	y0=1,
+		# 	x1=10,
+		# 	y1=3,
+		# 	line=dict(
+		# 		color="RoyalBlue",
+		# 		width=2),
+		# 	fillcolor="LightSkyBlue",)
+			# ]
+		)
+
+	return fig.to_dict()
+
+def prepareFigures():
+	print('Preparing figures to plot')
+	tSeriesGraph = prepareTimeSeriesGraph()
+	sessionGraph = prepareSessionGraph()
+	return tSeriesGraph,sessionGraph
 
 
 
@@ -312,7 +369,7 @@ app.layout = html.Div([
 			html.I(id='fast_forward_Btn', n_clicks=0, className='fa fa-fast-forward',style={'padding':10}),
 			html.I(id='decreaseXlim_Btn', n_clicks=0, className='fa fa-minus',style={'padding':10}),
 			html.I(id='increaseXlim_Btn', n_clicks=0, className='fa fa-plus',style={'padding':10})
-			],style={'text-align':'center','width':'100%'}),
+			],style={'text-align':'center','width':'100%','display':'none'}),
 		html.Div([
 			dcc.Slider(
     		id='cur_time_slider',
@@ -325,7 +382,20 @@ app.layout = html.Div([
 		'top':'0'
 		# 'text-align':'center',
 		# 'bottom':'0','border':'1px solid','width':'90%','background-position': 'top','background-color':'green'
-		}),		
+		}),
+	html.Div([
+    	dcc.Graph(
+    		id='sessionGraph',
+    		figure={
+    			'layout': {
+			        # 'clickmode': 'event+select',
+			        'height':300,
+			        'name':'no name'
+			    }
+    		}
+    		)
+    	],
+    	),		
     html.Div([
     	dcc.Graph(
     		id='timeSeriesGraph',
@@ -339,7 +409,10 @@ app.layout = html.Div([
     		}
     		)
     	],
-    	),    
+    	),
+	html.Div(id='messageContainer',children='test',style={'display':'none'}),
+    # html.Div(id='hiddenListOfFiles',style={'display':'true','columnCount':3}),
+    html.Div(id='xAxisLimValue',children=30,style={'display':'none','columnCount':2}),
     html.Div([
     	dbc.Button("List of files",id='buttonListOfFiles'),
     	dbc.Modal([
@@ -350,23 +423,6 @@ app.layout = html.Div([
     		dbc.Button("Close",id='closehiddenListOfFiles',className='ml-auto')
     		],id='listOfFilesDialog',is_open=False)
     	]),
-	html.Div(id='messageContainer',children='test'),
-    # html.Div(id='hiddenListOfFiles',style={'display':'true','columnCount':3}),
-    html.Div(id='xAxisLimValue',children=30,style={'display':'true','columnCount':2}),
-    html.Div([
-    	dcc.Graph(
-    		id='timeSeriesGrap2h',
-    		figure={
-    			'layout': {
-			        # 'clickmode': 'event+select',
-			        'height':350,
-			        'name':'tst name',
-			        'title':'Continuous time signals'
-			    }
-    		}
-    		)
-    	],
-    	),
 	])
 
 # -- Adjust the time displayed on the ECG graph
@@ -407,8 +463,10 @@ def updateSessionList(subjectSelected):
 
 	return sessionoptions,sessionval
 
+
 @app.callback([
 	Output('timeSeriesGraph','figure'),
+	Output('sessionGraph','figure'),
 	Output('cur_time_slider','min'),
 	Output('cur_time_slider','max')],
 	[Input('subject','value'),
@@ -419,13 +477,16 @@ def updateGraphs(subject,session):
 	loadData(str(subject),str(session),FILES)
 	t2 = time.time()
 	try:
-		tfig = prepareFigures()		
+		tfig,sfig = prepareFigures()		
 	except Exception as e:
 		print('Error on creating figure')
 		print(e)
 		tfig =go.Figure().to_dict()
+		sfig = go.Figure().to_dict()
 	print('Sending files to webbrowser')
-	return tfig,minSliderBar,maxSliderBar
+
+
+	return tfig,sfig,minSliderBar,maxSliderBar
 
 @app.callback(Output('listOfFilesDialog','is_open'),
 	[Input('buttonListOfFiles','n_clicks'),
