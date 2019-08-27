@@ -1,10 +1,11 @@
 #!/bin/bash
+set -e 
 
-apt update
-apt -y full-upgrade
+sudo apt update
+sudo apt -y full-upgrade
 
-apt -y install vim net-tools git tree
-apt-get -y install python-pip
+sudo apt -y install vim net-tools git tree
+sudo apt-get -y install python-pip
 
 echo -- PIP version: --
 echo $(pip --version)
@@ -19,21 +20,21 @@ sudo apt-get install sublime-text
 # -- Install virtual environment -- 
 echo "Installing virtualenv"
 pip install virtualenv
-virtualenv /venv
+sudo virtualenv /venv
 source /venv/bin/activate
 pip install tensorflow tensorboard numpy dash dash-daq dash-bootstrap-components paramiko pandas jedi
 # -- add python autocompletion support for Sublime
 cd ~/.config/sublime-text-3/Packages/
-git clone https://github.com/srusskih/SublimeJEDI.git "Jedi - Python auto      completion"
+[ -d "Jedi - Python auto completion" ] || git clone https://github.com/srusskih/SublimeJEDI.git "Jedi - Python auto completion"
 # -- add autocompletion functionalities for vim
 cd ~/ 
 sudo apt-get install curl vim exuberant-ctags git ack-grep
 sudo pip install pep8 flake8 pyflakes isort yapf 
-wget https://raw.github.com/fisadev/fisa-vim-config/master/.vimrc -O ~/.vimrc
+[ -f ~/.vimrc ] && rm -rf ~/.vimrc && wget https://raw.github.com/fisadev/fisa-vim-config/master/.vimrc -O ~/.vimrc || wget https://raw.github.com/fisadev/      fisa-vim-config/master/.vimrc -O ~/.vimrc
 vim -c :q! ~/.vimrc
 
 # Create autocompletion for python on bash shell
-[ -f ~/.pythonrc ] && echo "File ~/.pythonrc already exist" || touch ~/.pythonrc && echo "try:
+[ -f ~/.pythonrc ] && rm -rf ~/.pythonrc && touch ~/.pythonrc && sudo echo "try:
     import readline
     import rlcompleter
     readline.parse_and_bind(\"tab: complete\")
